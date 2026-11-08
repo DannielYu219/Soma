@@ -1,0 +1,36 @@
+{
+  "name": "project-soma",
+  "private": true,
+  "version": "0.1.2",
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "tsc -b && vite build",
+    "test": "node --experimental-strip-types --test tests/*.test.ts",
+    "preview": "vite preview --host 0.0.0.0 --port 5173",
+    "start": "node --experimental-strip-types server/index.ts",
+    "package:backend": "node scripts/package-backend.mjs",
+    "package:search": ".searxng/venv/bin/python scripts/package-search.py",
+    "app:prepare": "npm run build && npm run package:backend && node scripts/prepare-app.mjs",
+    "app": "npm run app:prepare && tauri dev",
+    "app:build": "npm run app:prepare && tauri build --bundles app && node scripts/package-dmg.mjs"
+  },
+  "dependencies": {
+    "@base-ui/react": "^1.9.0",
+    "@phosphor-icons/react": "^2.1.10",
+    "motion": "^14.9.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.4",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^6.0.0",
+    "esbuild": "0.28.2",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.5"
+  }
+}

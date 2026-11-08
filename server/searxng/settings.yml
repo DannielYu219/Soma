@@ -1,0 +1,54 @@
+# SearXNG settings for Soma's local search tool.
+# The shared Python launcher injects the chosen process-local outgoing.proxies.
+use_default_settings:
+  engines:
+    keep_only:
+      - google
+      - duckduckgo
+      - brave
+      - 360search
+      - sogou
+      - bing
+
+general:
+  instance_name: "Soma Search"
+  debug: false
+
+search:
+  safe_search: 0
+  default_lang: "zh-CN"
+  formats:
+    - html
+    - json
+
+server:
+  limiter: false
+  public_instance: false
+  image_proxy: false
+  method: "GET"
+
+engines:
+  - name: google
+    timeout: 10.0
+    disabled: false
+  - name: duckduckgo
+    timeout: 10.0
+    disabled: false
+  - name: brave
+    timeout: 10.0
+    disabled: false
+  - name: 360search
+    engine: 360search
+    shortcut: 360so
+    timeout: 10.0
+    disabled: false
+  - name: sogou
+    engine: sogou
+    shortcut: sogou
+    timeout: 10.0
+    disabled: false
+  - name: bing
+    engine: bing
+    shortcut: bi
+    timeout: 10.0
+    disabled: false

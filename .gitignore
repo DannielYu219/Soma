@@ -1,0 +1,15 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.DS_Store
+artifacts/
+.searxng/
+src-tauri/target/
+src-tauri/gen/
+.soma-logs/
+build-resources/
+releases/
+.backend-packager-ready
+__pycache__/
+.soma-data/
+.cache-integration-note
