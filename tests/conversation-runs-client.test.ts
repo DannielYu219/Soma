@@ -35,7 +35,7 @@ const start = {
   conversationId: 'conversation-1',
   service: { provider: 'openai-compatible', baseUrl: 'https://example.invalid/v1', model: 'test', apiKey: 'test-key' } satisfies ServiceSettings,
   messages: [{ role: 'user' as const, content: 'hello' }],
-  creator: null,
+  creator: null as import('../src/lib/creator.ts').CreatorDocument | null,
 }
 const snapshot = (extra: Partial<RunSnapshot> = {}): RunSnapshot => ({
   id: run.id, conversationId: start.conversationId, assistantId: run.assistantId,
@@ -265,3 +265,14 @@ for (const event of ['visibilitychange', 'pageshow']) {
     assert.equal(h.updates.at(-1)?.state, 'completed')
   })
 }
+
+
+test('run creation sends lyric mode and line constraints without local history', async t => {
+  const h = rig(t, () => json(snapshot({ state: 'completed' })))
+  const creator = { title: '歌', writingMode: 'lyrics' as const, activeChapterId: 'one', revision: 3, changes: [], chapters: [{ id: 'one', title: '主歌', text: '一行', lineTargets: [{ count: 8, unit: 'syllables' as const }] }] }
+  await h.observe({ ...start, creator })
+  const payload = JSON.parse(String(h.calls[0].init.body))
+  assert.equal(payload.creator.writingMode, 'lyrics')
+  assert.deepEqual(payload.creator.chapters[0].lineTargets, creator.chapters[0].lineTargets)
+  assert.equal(payload.creator.changes, undefined)
+})

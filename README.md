@@ -1,8 +1,8 @@
 # Soma
 
-Soma 是一款 macOS 桌面 AI 对话与创作工具。对话界面保持安静，模型调用和搜索过程放在界面之下。Creator Mode 用于写作，支持章节编辑、选区引用、修改日志和 Word / Markdown 导出。
+Soma 是一款 macOS 桌面 AI 对话与创作工具。对话界面保持安静，模型调用和搜索过程放在界面之下。Creator Mode 用于写作，支持文本 / 歌词模式、逐行字数 / 音节目标、TXT / Markdown / DOCX 导入、选区引用、修改日志和 Word / Markdown 导出。
 
-当前版本：0.1.2。仅支持 macOS（Apple Silicon，要求 macOS 13.5 及以上）。
+当前版本：0.1.3。仅支持 macOS（Apple Silicon，要求 macOS 13.5 及以上）。
 
 ## 功能
 
@@ -12,7 +12,8 @@ Soma 是一款 macOS 桌面 AI 对话与创作工具。对话界面保持安静�
   - 选中章节正文后可把原文作为带章节和位置的引用加入对话。
   - 修改日志记录作品改名、章节编辑、增删重排和已采纳的 AI 修改，并显示行差异。
   - AI 在下一次请求时能看到自上次以来的近期差异。
-  - 导出全部章节为 `.docx` 或 `.md`。DOCX 在本地生成。
+  - 导入 TXT、Markdown 与 DOCX；导出全部章节为 `.docx` 或 `.md`。文件只在本机解析，DOCX 在本地生成。
+  - 文本 / 歌词写作切换；歌词模式支持按行指定字数或音节数，Agent 可读取并遵循。
 - **持久化**：配置、对话和文稿保存在 macOS Application Support 目录。更新应用不会删除数据。
 - **后台续跑**：对话任务在网页端切到后台或 Safari 断开后，不会因此重跑。
 
@@ -21,7 +22,7 @@ Soma 是一款 macOS 桌面 AI 对话与创作工具。对话界面保持安静�
 在 [Releases](https://github.com/DannielYu219/Soma/releases) 下载对应版本的 `Soma_<版本>_aarch64.dmg`，并用同名的 `.sha256` 文件核对校验值：
 
 ```bash
-shasum -a 256 -c Soma_0.1.2_aarch64.dmg.sha256
+shasum -a 256 -c Soma_0.1.3_aarch64.dmg.sha256
 ```
 
 ## 从源码开发

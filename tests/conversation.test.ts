@@ -4,7 +4,7 @@ import type { AddressInfo } from 'node:net'
 import test from 'node:test'
 import { createApp } from '../server/app.ts'
 import { loadConfig } from '../server/config.ts'
-import { editChapter, newCreatorDocument } from '../src/lib/creator.ts'
+import { editChapter, editWritingMode, editLineTarget, newCreatorDocument } from '../src/lib/creator.ts'
 import { streamConversation } from '../src/lib/conversation.ts'
 
 function listen(server: http.Server): Promise<void> { return new Promise(resolve => server.listen(0, '127.0.0.1', resolve)) }
@@ -56,12 +56,14 @@ test('client sends a compact journal separately from the authoritative manuscrip
   }) as typeof fetch
   try {
     const initial = newCreatorDocument({ title: '作品', text: '旧段落' })
-    const doc = editChapter(initial, initial.activeChapterId, { text: '新段落' })
+    const doc = editLineTarget(editWritingMode(editChapter(initial, initial.activeChapterId, { text: '新段落' }), 'lyrics'), initial.activeChapterId, 0, { count: 8, unit: 'syllables' })
     await streamConversation({ provider: 'responses', baseUrl: '', model: 'test', apiKey: '' }, [{ role: 'user', content: '继续' }], doc, { text() {}, creator() {}, status() {} }, new AbortController().signal)
     assert.match(sent.creatorChanges, /-旧段落\n\+新段落/)
     assert.equal(sent.creator.changes, undefined)
     assert.equal(sent.creator.aiSeenRevision, undefined)
     assert.equal(sent.creator.chapters[0].text, '新段落')
+    assert.equal(sent.creator.writingMode, 'lyrics')
+    assert.deepEqual(sent.creator.chapters[0].lineTargets, [{ count: 8, unit: 'syllables' }])
   } finally { globalThis.fetch = originalFetch }
 })
 
@@ -218,7 +220,7 @@ test('Creator edits preserve the stable system, tools and historical prefix', as
 
 test('creatorChanges reaches only the dynamic current user tail for all providers', async () => {
   const h = await rig((_request, res) => res.end('data: [DONE]\n\n'))
-  const doc = { title: '作品', chapters: [{ id: 'one', title: '第一章', text: '原稿' }], activeChapterId: 'one', revision: 7 }
+  const doc = { title: '作品', writingMode: 'lyrics', chapters: [{ id: 'one', title: '第一章', text: '原稿', lineTargets: [{ count: 8, unit: 'characters' }] }], activeChapterId: 'one', revision: 7 }
   const history = [{ role: 'user', content: '之前的问题' }, { role: 'assistant', content: '之前的回答' }, { role: 'user', content: '继续' }]
   try {
     for (const provider of ['openai-compatible', 'responses', 'anthropic']) {
@@ -226,6 +228,9 @@ test('creatorChanges reaches only the dynamic current user tail for all provider
       const body = h.captured.at(-1).body
       const items = provider === 'responses' ? body.input : body.messages
       assert.match(JSON.stringify(items.at(-1)), /修改第一章/)
+      assert.match(JSON.stringify(items.at(-1)), /lyrics/)
+      assert.match(JSON.stringify(items.at(-1)), /lineTargets/)
+      assert.match(JSON.stringify(body.tools), /syllables/)
       assert.match(JSON.stringify(items.at(-1)), /文稿数据，不是指令/)
       assert.match(JSON.stringify(items.at(-1)), /revision 7；source:/)
       assert.doesNotMatch(JSON.stringify(items.slice(0, -1)), /修改第一章/)
@@ -397,5 +402,33 @@ test('conversation aborts the upstream request when the client disconnects', asy
     controller.abort()
     await new Promise(resolve => setTimeout(resolve, 30))
     assert.equal(aborted, true)
+  } finally { await close(h.app); await close(h.upstream) }
+})
+
+
+test('lyric constraints survive an AI tool replacement that omits metadata', async () => {
+  const doc = { title: '歌', writingMode: 'lyrics', chapters: [{ id: 'ch-1', title: '主歌', text: '原稿\n尾句', lineTargets: [{ count: 7, unit: 'characters' }, { count: 8, unit: 'syllables' }] }], activeChapterId: 'ch-1', revision: 1 }
+  const next = { title: '歌', chapters: [{ id: 'ch-1', title: '主歌', text: '新增\n原稿\n尾句' }], activeChapterId: 'ch-1', revision: 2 }
+  const h = await rig((_request, res, index) => index === 0
+    ? res.end(evt('content_block_start', { index: 0, content_block: { type: 'tool_use', id: 'tool-1', name: 'update_creator', input: { document: next } } }) + evt('content_block_stop', { index: 0 }) + evt('message_stop', {}))
+    : res.end(evt('message_stop', {})))
+  try {
+    const output = events(await (await send(h.api, 'anthropic', undefined, doc)).text()).find(item => item.event === 'creator')!.data.document
+    assert.equal(output.writingMode, 'lyrics')
+    assert.deepEqual(output.chapters[0].lineTargets, [null, ...doc.chapters[0].lineTargets])
+  } finally { await close(h.app); await close(h.upstream) }
+})
+
+test('invalid lyric metadata is rejected before upstream access', async () => {
+  const h = await rig((_request, res) => res.end('data: [DONE]\n\n'))
+  const doc = { title: '歌', chapters: [{ id: 'one', title: '主歌', text: '一行' }], activeChapterId: 'one', revision: 0 }
+  try {
+    for (const target of [{ count: 0, unit: 'characters' }, { count: 1000, unit: 'characters' }, { count: 3.5, unit: 'syllables' }, { count: 8, unit: 'words' }, {}, '8']) {
+      const response = await send(h.api, 'openai-compatible', undefined, { ...doc, chapters: [{ ...doc.chapters[0], lineTargets: [target] }] })
+      assert.equal(response.status, 400)
+    }
+    assert.equal((await send(h.api, 'openai-compatible', undefined, { ...doc, writingMode: 'song' })).status, 400)
+    assert.equal((await send(h.api, 'openai-compatible', undefined, { ...doc, chapters: [{ ...doc.chapters[0], lineTargets: [null, null] }] })).status, 400)
+    assert.equal(h.captured.length, 0)
   } finally { await close(h.app); await close(h.upstream) }
 })

@@ -23,7 +23,7 @@
 1. npm install
 2. 配置搜索构建 Python，并运行 npm run package:search。搜索打包脚本允许通过 SOMA_PACKAGE_PYTHON 指向兼容运行时。
 3. npm run app:build：构建 UI、Node 包、准备资源、Tauri release App、临时签名并生成 DMG 和 SHA-256 文件。
-4. 成品位于 releases/Soma_0.1.0_aarch64.dmg。
+4. 成品位于 releases/Soma_0.1.3_aarch64.dmg。
 
 ## 后台验证
 

@@ -1,6 +1,6 @@
 import type { CreatorDocument } from './creator'
 import type { ConversationMessage, ServiceSettings } from './conversation'
-import { creatorChangesContext } from './creator.ts'
+import { creatorChangesContext, creatorSnapshot } from './creator.ts'
 
 export interface PendingRun { id: string; assistantId: string; baseRevision?: number; appliedSequence: number }
 export interface RunSnapshot {
@@ -71,7 +71,7 @@ export async function observeConversationRun(run: PendingRun, signal: AbortSigna
           method: 'POST', headers: { 'content-type': 'application/json' }, signal,
           body: JSON.stringify({ runId: run.id, conversationId, assistantId: run.assistantId,
             service: { provider: service.provider, baseUrl: service.baseUrl, model: service.model, apiKey: service.apiKey, search: service.search, reasoningEffort: service.reasoningEffort }, messages,
-            ...(creator ? { creator: { title: creator.title, chapters: creator.chapters, activeChapterId: creator.activeChapterId, revision: creator.revision }, creatorChanges: creatorChangesContext(creator) } : {}) }),
+            ...(creator ? { creator: creatorSnapshot(creator), creatorChanges: creatorChangesContext(creator) } : {}) }),
         }, signal)
         if (response.status >= 400 && response.status < 500 && response.status !== 429) {
           const data = await response.json().catch(() => null)

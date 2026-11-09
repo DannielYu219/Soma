@@ -1,3 +1,5 @@
+import { preserveCreatorMetadata } from '../src/lib/creator.ts'
+import type { CreatorDocument, LyricLineTarget } from '../src/lib/creator.ts'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Config } from './config.ts'
 import { chatAdapter } from './adapters/chat.ts'
@@ -20,8 +22,6 @@ const PROVIDER_ADAPTER: Record<string, Adapter> = {
   anthropic: messagesAdapter,
 }
 
-interface Chapter { id: string; title: string; text: string }
-interface CreatorDocument { title: string; chapters: Chapter[]; activeChapterId: string; revision: number }
 type ReasoningEffort = 'auto' | 'low' | 'medium' | 'high'
 type ConversationPhase = 'initial' | 'waiting' | 'thinking' | 'search-agent' | 'searching' | 'summarizing' | 'returning' | 'creating' | 'responding'
 type Status = (phase: ConversationPhase, message: string) => void
@@ -53,6 +53,7 @@ function validateDocument(raw: unknown): CreatorDocument {
   const doc = raw as Record<string, unknown>
   if (typeof doc.title !== 'string' || doc.title.length > 500 || !Array.isArray(doc.chapters) || doc.chapters.length < 1 || doc.chapters.length > MAX_CHAPTERS || typeof doc.activeChapterId !== 'string' || !Number.isInteger(doc.revision) || (doc.revision as number) < 0)
     throw new HttpError(400, 'creator 文档字段无效。')
+  if (doc.writingMode !== undefined && doc.writingMode !== 'text' && doc.writingMode !== 'lyrics') throw new HttpError(400, '写作模式无效。')
   const ids = new Set<string>()
   const chapters = doc.chapters.map((item) => {
     if (!item || typeof item !== 'object' || Array.isArray(item)) throw new HttpError(400, '章节格式无效。')
@@ -60,10 +61,19 @@ function validateDocument(raw: unknown): CreatorDocument {
     if (typeof chapter.id !== 'string' || !/^[\w-]{1,100}$/.test(chapter.id) || ids.has(chapter.id) || typeof chapter.title !== 'string' || chapter.title.length > 500 || typeof chapter.text !== 'string' || chapter.text.length > MAX_TEXT)
       throw new HttpError(400, '章节字段无效或章节 id 重复。')
     ids.add(chapter.id)
-    return { id: chapter.id, title: chapter.title, text: chapter.text }
+    let lineTargets: Array<LyricLineTarget | null> | undefined
+    if (chapter.lineTargets !== undefined) {
+      if (!Array.isArray(chapter.lineTargets) || chapter.lineTargets.length > chapter.text.split('\n').length) throw new HttpError(400, '逐行目标必须对应现有正文行。')
+      lineTargets = chapter.lineTargets.map(target => {
+        if (target === null) return null
+        if (!target || typeof target !== 'object' || Array.isArray(target) || !['characters', 'syllables'].includes(target.unit) || (target.count !== null && (!Number.isInteger(target.count) || target.count < 1 || target.count > 999))) throw new HttpError(400, '逐行目标须为 1–999 的字数或音节数，或留空。')
+        return { count: target.count, unit: target.unit }
+      })
+    }
+    return { id: chapter.id, title: chapter.title, text: chapter.text, ...(lineTargets === undefined ? {} : { lineTargets }) }
   })
   if (!ids.has(doc.activeChapterId)) throw new HttpError(400, 'activeChapterId 必须指向现有章节。')
-  return { title: doc.title, chapters, activeChapterId: doc.activeChapterId, revision: doc.revision as number }
+  return { title: doc.title, ...(doc.writingMode === undefined ? {} : { writingMode: doc.writingMode }), chapters, activeChapterId: doc.activeChapterId, revision: doc.revision as number }
 }
 
 function validateInput(body: Record<string, unknown>): Input {
@@ -102,13 +112,13 @@ function endpoint(baseValue: string, provider: string, cfg: Config): string {
 
 const creatorTool = {
   name: 'update_creator',
-  description: '以完整文档替换 Creator 文档。保留未修改章节及其 id，增删章节时保持顺序合理；revision 使用当前值加一。',
+  description: '以完整文档替换 Creator 文档。保留未修改章节及其 id、writingMode 和逐行 lineTargets；revision 使用当前值加一。lyrics 为歌词写作，lineTargets 数组从第 1 行起逐项对应以换行符分隔的正文行（包括空行），null 或 count:null 表示未设目标；characters 为字数，syllables 为音节数。仅在 lyrics 模式下按每行目标写作；增删行时同步调整数组，保留其他行的约束。',
   parameters: {
     type: 'object', additionalProperties: false,
     properties: {
       document: { type: 'object', additionalProperties: false, properties: {
-        title: { type: 'string' }, activeChapterId: { type: 'string' }, revision: { type: 'integer' },
-        chapters: { type: 'array', minItems: 1, items: { type: 'object', additionalProperties: false, properties: { id: { type: 'string' }, title: { type: 'string' }, text: { type: 'string' } }, required: ['id', 'title', 'text'] } },
+        title: { type: 'string' }, writingMode: { type: 'string', enum: ['text', 'lyrics'] }, activeChapterId: { type: 'string' }, revision: { type: 'integer' },
+        chapters: { type: 'array', minItems: 1, items: { type: 'object', additionalProperties: false, properties: { id: { type: 'string' }, title: { type: 'string' }, text: { type: 'string' }, lineTargets: { type: 'array', items: { anyOf: [{ type: 'null' }, { type: 'object', additionalProperties: false, properties: { count: { anyOf: [{ type: 'integer', minimum: 1, maximum: 999 }, { type: 'null' }] }, unit: { type: 'string', enum: ['characters', 'syllables'] } }, required: ['count', 'unit'] }] } } }, required: ['id', 'title', 'text'] } },
       }, required: ['title', 'chapters', 'activeChapterId', 'revision'] },
     }, required: ['document'],
   },
@@ -338,7 +348,7 @@ export async function handleConversation(cfg: Config, rawBody: Record<string, un
         const args = parseJson(call.args)
         try {
           if (!document || !args?.document) throw new Error('缺少作品文档')
-          const updated = validateDocument(args.document)
+          const updated = preserveCreatorMetadata(document, validateDocument(args.document))
           if (updated.revision <= document.revision) updated.revision = document.revision + 1
           status('creating', '正在更新作品')
           document = updated

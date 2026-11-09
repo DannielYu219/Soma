@@ -109,3 +109,26 @@
 .diff-added { color: light-dark(#257044, #87cfa3); }
 .diff-removed { color: light-dark(#a33f45, #eda0a3); }
 @media (prefers-reduced-transparency: reduce) { .creator-chat, .creator-chapters { background: var(--paper); } }
+
+/* The lyric gutter follows hard line breaks while the manuscript keeps one selection surface. */
+.creator-writing-modes { display: flex; gap: 2px; padding: 3px; border-radius: 999px; background: var(--surface); }
+.creator-writing-modes button { padding: 7px 12px; border-radius: 999px; color: var(--secondary); font-size: 12px; white-space: nowrap; }
+.creator-writing-modes button[aria-pressed="true"] { color: var(--text); background: var(--hover); }
+.creator-writing-modes button:focus-visible, .creator-line-target:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.creator-chapter-body { position: relative; }
+.creator-lyrics-body { padding-left: 92px; }
+.creator-lyrics-hint { margin: -8px 0 18px; color: var(--secondary); font-size: 11px; line-height: 1.8; }
+.creator-lyric-gutter { position: absolute; inset: 0 auto 0 0; width: 82px; }
+.creator-line-target { position: absolute; left: 0; display: flex; align-items: center; width: 80px; height: 24px; border-radius: 6px; background: var(--surface); color: var(--secondary); }
+.creator-line-target input { width: 36px; min-width: 0; height: 24px; padding: 0 2px 0 5px; font-size: 11px; font-variant-numeric: tabular-nums; appearance: textfield; }
+.creator-line-target input::-webkit-inner-spin-button, .creator-line-target input::-webkit-outer-spin-button { appearance: none; margin: 0; }
+.creator-line-target select { width: 44px; min-width: 0; height: 24px; padding: 0 1px; border: 0; background: transparent; color: inherit; font: inherit; font-size: 10px; cursor: pointer; }
+.creator-line-target select:focus-visible { outline: none; }
+@media (max-width: 480px) {
+  .creator-header { padding-inline: 14px; }
+  .creator-writing-modes button { padding-inline: 8px; }
+}
+
+.creator-import-error { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 20px 10px; padding: 9px 14px; border: 1px solid var(--line); border-radius: 8px; color: var(--text); background: var(--surface); font-size: 12px; }
+.creator-import-error button { flex: 0 0 auto; padding: 5px 9px; border-radius: 6px; color: var(--secondary); }
+.creator-import-error button:hover { background: var(--hover); color: var(--text); }

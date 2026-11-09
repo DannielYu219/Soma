@@ -7,12 +7,8 @@ import { handleConversation, readConversationBody } from './conversation.ts'
 import { HttpError } from './types.ts'
 import { writeJson } from './sse.ts'
 
-export interface CreatorDocument {
-  title: string
-  chapters: Array<{ id: string; title: string; text: string }>
-  activeChapterId: string
-  revision: number
-}
+import type { CreatorDocument } from '../src/lib/creator.ts'
+export type { CreatorDocument } from '../src/lib/creator.ts'
 export interface RunSnapshot {
   id: string
   conversationId: string

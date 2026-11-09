@@ -1,4 +1,4 @@
-import { creatorChangesContext } from './creator.ts'
+import { creatorChangesContext, creatorSnapshot } from './creator.ts'
 import type { CreatorDocument } from './creator'
 
 export type ReasoningEffort = 'auto' | 'low' | 'medium' | 'high'
@@ -10,7 +10,7 @@ interface Handlers { text(delta: string): void; reasoning?(delta: string): void;
 export async function streamConversation(service: ServiceSettings, messages: ConversationMessage[], creator: CreatorDocument | null, handlers: Handlers, signal: AbortSignal): Promise<void> {
   const response = await fetch('/api/conversation', {
     method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ service: { provider: service.provider, baseUrl: service.baseUrl, model: service.model, apiKey: service.apiKey, ...(service.search ? { search: service.search } : {}), ...(service.reasoningEffort ? { reasoningEffort: service.reasoningEffort } : {}) }, messages, ...(creator ? { creator: { title: creator.title, chapters: creator.chapters, activeChapterId: creator.activeChapterId, revision: creator.revision }, creatorChanges: creatorChangesContext(creator) } : {}) }), signal,
+    body: JSON.stringify({ service: { provider: service.provider, baseUrl: service.baseUrl, model: service.model, apiKey: service.apiKey, ...(service.search ? { search: service.search } : {}), ...(service.reasoningEffort ? { reasoningEffort: service.reasoningEffort } : {}) }, messages, ...(creator ? { creator: creatorSnapshot(creator), creatorChanges: creatorChangesContext(creator) } : {}) }), signal,
   })
   if (!response.ok) {
     const error = await response.json().catch(() => null)
